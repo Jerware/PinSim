@@ -16,4 +16,4 @@ This code is designed to run on Teensy LC and requires the following libraries:
 
 Please note the instructions for the MSF-XInput library, which requires some Teensyduino files to be overwritten in order to add support for a new USB device type.
 
-I have included compiled code that can be installed on a Teensy LC using the [Teensy Loader](https://www.pjrc.com/teensy/loader.html) application. The code will compile for Teenst 3.2 but that board, besides being more expensive, lacks sufficient current output on the LED pins.
+I have included compiled code that can be installed on a Teensy LC using the [Teensy Loader](https://www.pjrc.com/teensy/loader.html) application. The code will compile for Teensy 3.2 but, besides being more expensive, that board lacks sufficient current output on the LED pins.
