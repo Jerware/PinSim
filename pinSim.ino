@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20160503
+    PinSim Controller v20160505
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -26,29 +26,32 @@
 #include <Average.h>
 #include <EEPROMex.h>
 
-int numSamples = 10;
+int numSamples = 20;
 Average<int> ave(numSamples);
-int lastReading = 0;
-int lastAverageReading = 0;
 
 /* Assign a unique ID to this sensor at the same time */
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
+// GLOBAL VARIABLES
+// configure these
 boolean accelerometerEnabled = true;
 boolean plungerEnabled = true;
+int16_t nudgeMultiplier = 9000; // accelerometer multiplier (higher = more sensitive)
+int16_t plungeTrigger = 60; // threshold to trigger a plunge (lower = more sensitive)
 
-float zeroX = 0;
-float zeroY = 0;
-boolean plunging = false;
-int16_t nudgeMultiplier = 9000; // accelerometer multiplier
-uint16_t plungerReportDelay = 0; // delay in ms between sending plunger updates to PC
-uint16_t plungerMin = 200; // min plunger analog sensor value
-uint16_t plungerMax = 550; // max plunger analog sensor value
-uint16_t plungeTrigger = 60; // threshold to trigger a plunge
+// probably leave these alone
+int16_t plungerReportDelay = 17; // delay in ms between reading ~60hz plunger updates from sensor
+int16_t plungerMin = 200; // min plunger analog sensor value
+int16_t plungerMax = 550; // max plunger analog sensor value
+int16_t plungerMaxDistance = 0; // sensor value converted to actual distance
+int16_t plungerMinDistance = 0;
 uint32_t plungerReportTime = 0;
 uint32_t tiltEnableTime = 0;
-int16_t plungerMinLinear = 0;
-int16_t plungerMaxLinear = 0;
+int16_t lastReading = 0;
+int16_t lastDistance = 0;
+int16_t distanceBuffer = 0;
+float zeroX = 0;
+float zeroY = 0;
 
 ////Pin Declarations
 #define pinDpadL 0  //Left on DPAD
@@ -96,8 +99,6 @@ int16_t plungerMaxLinear = 0;
 
 //Global Variables
 byte buttonStatus[NUMBUTTONS];  //array Holds a "Snapshot" of the button status to parse and manipulate
-uint8_t TXData[20] = {0x00, 0x14, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};  //Holds USB transmit packet data
-uint8_t RXData[3] = {0x00, 0x00, 0x00};  //Holds USB receive packet data
 
 //LED Toggle Tracking Global Variables
 uint8_t LEDState = LOW;	//used to set the pin for the LED
@@ -214,14 +215,12 @@ void processInputs()
   else {controller.buttonUpdate(BUTTON_RB, 0);}
   
   //Middle Buttons
+
   if (buttonStatus[POSST]&&buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_LOGO, 1);}
-  else {controller.buttonUpdate(BUTTON_LOGO, 0);}
-  if (buttonStatus[POSST]) {controller.buttonUpdate(BUTTON_START, 1);}
-  else {controller.buttonUpdate(BUTTON_START, 0);}
-  if (buttonStatus[POSBK]) {controller.buttonUpdate(BUTTON_BACK, 1);}
-  else {controller.buttonUpdate(BUTTON_BACK, 0);}
-  if (buttonStatus[POSXB]) {controller.buttonUpdate(BUTTON_LOGO, 1);}
-  else {controller.buttonUpdate(BUTTON_LOGO, 0);}
+  else if (buttonStatus[POSST]){controller.buttonUpdate(BUTTON_START, 1);}
+  else if (buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_BACK, 1);}
+  else if (buttonStatus[POSXB]){controller.buttonUpdate(BUTTON_LOGO, 1);}
+  else {controller.buttonUpdate(BUTTON_LOGO, 0); controller.buttonUpdate(BUTTON_START, 0); controller.buttonUpdate(BUTTON_BACK, 0);}
 
   //Triggers
 //  uint8_t leftTrigger = map(analogRead(A7), 0, 1023, 0, 255);
@@ -249,56 +248,57 @@ void processInputs()
   // This is based on the Sharp GP2Y0A51SK0F Analog Distance Sensor 2-15cm
   if (plungerEnabled)
   {
-    int reading = analogRead(A1);
+    int reading = analogRead(pinPlunger);
   
-    if (((reading - lastReading) > -10 && (reading - lastReading) < 10) || reading - lastReading < -75 || reading - lastReading > 75)
+    if ((reading - lastReading) > -10 && (reading - lastReading) < 10 || (reading - lastReading > 75) || (reading - lastReading < -75))
     {
       ave.push(reading);
     }
-    int averageReading = ave.mean();
+    lastReading = reading;
+    int16_t averageReading = ave.mean();
 
-    // I found reporting too frequently results in soft plunges. Might want to experiment more with this.
+    // it appears the distance sensor updates at about 60hz, no point in checking more often than that
     if (millis() > plungerReportTime)
     {
       plungerReportTime = millis() + plungerReportDelay;
-      if (averageReading > plungerMin && averageReading < plungerMax - 25)
+      int16_t currentDistance = readingToDistance(averageReading);
+      distanceBuffer = currentDistance;
+      if (currentDistance < plungerMaxDistance && currentDistance > plungerMinDistance + 50)
       {
-        // Disable plunging if just plunged
-        if (lastReading - reading > plungeTrigger)
+        // Attempt to detect plunge
+        if (currentDistance - lastDistance >= plungeTrigger)
         {
-          controller.stickUpdate(STICK_RIGHT, 0, 0);
-          plungerReportTime = millis() + 1000;
-          lastReading = plungerMin;
-          return;
+            // we throw STICK_RIGHT to 0 to better simulate the physical behavior of a real analog stick
+            controller.stickUpdate(STICK_RIGHT, 0, 0);
+            // disable plunger momentarily to compensate for spring bounce
+            plungerReportTime = millis() + 1000;
+            distanceBuffer = plungerMaxDistance;
+            lastDistance = plungerMaxDistance;
+            return;
         }
-
-        // The signal from the IR distance detector is curved. Let's linearize. Thanks for the help Twitter!
-        float voltage = averageReading / 310.0f;
-        float linearDistance = ((0.1621f * voltage) + 1.0f) / (0.1567f * voltage);
-        int16_t integerDistance = linearDistance * 100;
-        
-        // the -90 here is a hack to workaround a rounding error I haven't pin pointed yet.
-        controller.stickUpdate(STICK_RIGHT, 0, map(integerDistance - 90, plungerMinLinear, plungerMaxLinear, 0, -32768));
+        lastDistance = currentDistance;
 
         // Disable accelerometer while plunging and for 1 second afterwards.
-        if (averageReading > plungerMin + 25) tiltEnableTime = millis() + 1000;
+        if (currentDistance < plungerMaxDistance - 50) tiltEnableTime = millis() + 1000;
       }
 
       // cap max
-      else if (averageReading >= plungerMax - 25)
+      else if (currentDistance <= plungerMinDistance + 50)
       {
         controller.stickUpdate(STICK_RIGHT, 0, -32768);
+        distanceBuffer = plungerMinDistance;
         tiltEnableTime = millis() + 1000;
       }
       
       // cap min
-      else if (averageReading < plungerMin)
+      else if (currentDistance > plungerMaxDistance)
       {
         controller.stickUpdate(STICK_RIGHT, 0, 0);
+        distanceBuffer = plungerMaxDistance;
       }
-      lastAverageReading = averageReading;
     }
-    lastReading = reading;
+
+    controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768));
   }
 
   // Rumble
@@ -317,11 +317,19 @@ void processInputs()
  
 }
 
+uint16_t readingToDistance(int16_t reading)
+{
+    // The signal from the IR distance detector is curved. Let's linearize. Thanks for the help Twitter!
+    float voltage = reading / 310.0f;
+    float linearDistance = ((0.1621f * voltage) + 1.0f) / (0.1567f * voltage);
+    return linearDistance * 100;
+}
+
 uint16_t getPlungerAverage()
 {
   for (int i=0; i<numSamples; i++)
   {
-    int reading = analogRead(A1);
+    int reading = analogRead(pinPlunger);
   
     if ((reading - lastReading) > -10 && (reading - lastReading) < 10)
     {
@@ -341,7 +349,7 @@ uint16_t getPlungerMax()
   while (averageReading < plungerMin + 100)
   {
     // wait for the plunger to be pulled
-    int reading = analogRead(A1);
+    int reading = analogRead(pinPlunger);
     if ((reading - lastReading) > -10 && (reading - lastReading) < 10)
     {
       ave.push(reading);
@@ -353,7 +361,7 @@ uint16_t getPlungerMax()
   while (averageReading > plungerMin)
   {
     // start recording plungerMax
-    int reading = analogRead(A1);
+    int reading = analogRead(pinPlunger);
     if ((reading - lastReading) > -10 && (reading - lastReading) < 10)
     {
       ave.push(reading);
@@ -383,28 +391,31 @@ void setup()
 {
   setupPins();
 
-//  // rumble test
-//  for (int str=0; str < 256; str++)
-//  {
-//    analogWrite(rumbleSmall, str);
-//    delay(10);
-//  }
-//  for (int str=255; str > 0; str--)
-//  {
-//    analogWrite(rumbleSmall, str);
-//    delay(10);
-//  }
-//
-//  for (int str=0; str < 256; str++)
-//  {
-//    analogWrite(rumbleLarge, str);
-//    delay(10);
-//  }
-//  for (int str=255; str > 0; str--)
-//  {
-//    analogWrite(rumbleLarge, str);
-//    delay(10);
-//  }
+  // rumble test (hold A on boot)
+  if (digitalRead(pinB1) == LOW)
+  {
+    for (int str=0; str < 256; str++)
+    {
+      analogWrite(rumbleSmall, str);
+      delay(10);
+    }
+    for (int str=255; str > 0; str--)
+    {
+      analogWrite(rumbleSmall, str);
+      delay(10);
+    }
+  
+    for (int str=0; str < 256; str++)
+    {
+      analogWrite(rumbleLarge, str);
+      delay(10);
+    }
+    for (int str=255; str > 0; str--)
+    {
+      analogWrite(rumbleLarge, str);
+      delay(10);
+    }
+  }
 
   /* Initialise the sensor */
   if (accelerometerEnabled)
@@ -432,7 +443,6 @@ void setup()
   // plunger setup
   // to calibrate, hold START when plugging in the Teensy LC
   plungerMin = getPlungerAverage();
-  if (plungerMin == 0) plungerEnabled = false; // assume pin is grounded/disabled
   if (plungerEnabled) plungerMax = EEPROM.readInt(0);
 
   if (digitalRead(pinST) == LOW) getPlungerMax();
@@ -440,8 +450,9 @@ void setup()
   // linear conversions
   if (plungerEnabled)
   {
-     plungerMinLinear = (((.01621f * (plungerMin / 310.0f)) + 1.0f) / (0.1567f * (plungerMin / 310.0f))) * 100;
-     plungerMaxLinear = (((.01621f * (plungerMax / 310.0f)) + 1.0f) / (0.1567f * (plungerMax / 310.0f))) * 100;
+     plungerMaxDistance = readingToDistance(plungerMin);
+     plungerMinDistance = readingToDistance(plungerMax);
+     lastDistance = plungerMaxDistance;
   }
 }
 
