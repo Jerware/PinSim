@@ -426,19 +426,19 @@ void setup()
       flashStartButton();
       flashStartButton();
     }
-  }
-
-  /* Set the range to whatever is appropriate for your project */
-  // accel.setRange(ADXL345_RANGE_16_G);
-  // accel.setRange(ADXL345_RANGE_8_G);
-  // accel.setRange(ADXL345_RANGE_4_G);
-  accel.setRange(ADXL345_RANGE_2_G);
   
-  delay(1000);
-  sensors_event_t event; 
-  accel.getEvent(&event);
-  zeroX = event.acceleration.x * nudgeMultiplier * -1;
-  zeroY = event.acceleration.y * nudgeMultiplier * -1;
+    /* Set the range to whatever is appropriate for your project */
+    // accel.setRange(ADXL345_RANGE_16_G);
+    // accel.setRange(ADXL345_RANGE_8_G);
+    // accel.setRange(ADXL345_RANGE_4_G);
+    accel.setRange(ADXL345_RANGE_2_G);
+    
+    delay(1000);
+    sensors_event_t event; 
+    accel.getEvent(&event);
+    zeroX = event.acceleration.x * nudgeMultiplier * -1;
+    zeroY = event.acceleration.y * nudgeMultiplier * -1;
+  }
 
   // plunger setup
   // to calibrate, hold START when plugging in the Teensy LC
