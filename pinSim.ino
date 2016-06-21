@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20160505
+    PinSim Controller v20160620
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -40,6 +40,7 @@ int16_t nudgeMultiplier = 9000; // accelerometer multiplier (higher = more sensi
 int16_t plungeTrigger = 60; // threshold to trigger a plunge (lower = more sensitive)
 
 // probably leave these alone
+int16_t zeroValue = 0; // xbox 360 value for neutral analog stick
 int16_t plungerReportDelay = 17; // delay in ms between reading ~60hz plunger updates from sensor
 int16_t plungerMin = 200; // min plunger analog sensor value
 int16_t plungerMax = 550; // max plunger analog sensor value
@@ -208,6 +209,15 @@ void processInputs()
   if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_R3, 1);}
   else {controller.buttonUpdate(BUTTON_R3, 0);}
 
+  // If A and Left Flipper pressed simultaneously, set new plunger dead zone
+  // Compensates for games where the in-game plunger doesn't begin pulling back until
+  // the gamepad is pulled back ~half way. Just pull the plunger to the point just before
+  // it begins to move in-game, and then press A & LB.
+  if (buttonStatus[POSB1] && buttonStatus[POSLB])
+  {
+    deadZoneCompensation();
+  }
+
   //Bumpers
   if (buttonStatus[POSLB]) {controller.buttonUpdate(BUTTON_LB, 1);}
   else {controller.buttonUpdate(BUTTON_LB, 0);}
@@ -235,6 +245,13 @@ void processInputs()
     /* Get a new sensor event */ 
     sensors_event_t event; 
     accel.getEvent(&event);
+
+    // zero accelerometer whenever A is pushed (PinSim Yellow Start Button)
+    if (buttonStatus[POSB1])
+    {
+      zeroX = event.acceleration.x * nudgeMultiplier * -1;
+      zeroY = event.acceleration.y * nudgeMultiplier * -1;
+    }
   
     int leftStickX = zeroX + (event.acceleration.x * nudgeMultiplier);
     int leftStickY = zeroY + (event.acceleration.y * nudgeMultiplier);
@@ -266,7 +283,8 @@ void processInputs()
       if (currentDistance < plungerMaxDistance && currentDistance > plungerMinDistance + 50)
       {
         // Attempt to detect plunge
-        if (currentDistance - lastDistance >= plungeTrigger)
+        int16_t adjustedPlungeTrigger = map(currentDistance, plungerMaxDistance, plungerMinDistance, plungeTrigger/2, plungeTrigger);
+        if (currentDistance - lastDistance >= adjustedPlungeTrigger)
         {
             // we throw STICK_RIGHT to 0 to better simulate the physical behavior of a real analog stick
             controller.stickUpdate(STICK_RIGHT, 0, 0);
@@ -298,7 +316,7 @@ void processInputs()
       }
     }
 
-    controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768));
+    controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32768));
   }
 
   // Rumble
@@ -341,7 +359,7 @@ uint16_t getPlungerAverage()
   return averageReading;
 }
 
-uint16_t getPlungerMax()
+void getPlungerMax()
 {
   flashStartButton();
   plungerMax = plungerMin + 1;
@@ -375,6 +393,19 @@ uint16_t getPlungerMax()
   flashStartButton();
 }
 
+void deadZoneCompensation()
+{
+  zeroValue = map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768) - 10;
+  if (zeroValue > 0) zeroValue = 0;
+  flashStartButton();
+  buttonUpdate();
+  // ensure just one calibration per button press
+  while (digitalRead(pinB1) == LOW)
+  {
+    // wait...
+  }
+}
+
 void flashStartButton()
 {
   for (int i=0; i<10; i++)
@@ -390,9 +421,10 @@ void flashStartButton()
 void setup() 
 {
   setupPins();
-
-  // rumble test (hold A on boot)
-  if (digitalRead(pinB1) == LOW)
+  delay(500);
+  
+  // rumble test (hold Left Flipper on boot)
+  if (digitalRead(pinLB) == LOW)
   {
     for (int str=0; str < 256; str++)
     {
@@ -417,16 +449,25 @@ void setup()
     }
   }
 
+  // Hold Right Flipper on boot to disable accelerometer
+  if (digitalRead(pinRB) == LOW)
+  {
+    accelerometerEnabled = false;
+  }
+
   /* Initialise the sensor */
   if (accelerometerEnabled)
   {
     if(!accel.begin())
     {
       /* There was a problem detecting the ADXL345 ... check your connections */
-      flashStartButton();
+      accelerometerEnabled = false;
       flashStartButton();
     }
+  }
   
+  if (accelerometerEnabled)
+  {
     /* Set the range to whatever is appropriate for your project */
     // accel.setRange(ADXL345_RANGE_16_G);
     // accel.setRange(ADXL345_RANGE_8_G);
@@ -439,13 +480,14 @@ void setup()
     zeroX = event.acceleration.x * nudgeMultiplier * -1;
     zeroY = event.acceleration.y * nudgeMultiplier * -1;
   }
+  else delay(1000);
 
   // plunger setup
-  // to calibrate, hold START when plugging in the Teensy LC
   plungerMin = getPlungerAverage();
   if (plungerEnabled) plungerMax = EEPROM.readInt(0);
 
-  if (digitalRead(pinST) == LOW) getPlungerMax();
+  // to calibrate, hold A when plugging in the Teensy LC
+  if (digitalRead(pinB1) == LOW) getPlungerMax();
 
   // linear conversions
   if (plungerEnabled)
