@@ -36,11 +36,13 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 // configure these
 boolean accelerometerEnabled = true;
 boolean plungerEnabled = true;
+boolean currentlyPlunging = false;
 int16_t nudgeMultiplier = 9000; // accelerometer multiplier (higher = more sensitive)
 int16_t plungeTrigger = 60; // threshold to trigger a plunge (lower = more sensitive)
 
 // probably leave these alone
 int16_t zeroValue = 0; // xbox 360 value for neutral analog stick
+int16_t zeroValueBuffer = 0; // save zero value during plunge
 int16_t plungerReportDelay = 17; // delay in ms between reading ~60hz plunger updates from sensor
 int16_t plungerMin = 200; // min plunger analog sensor value
 int16_t plungerMax = 550; // max plunger analog sensor value
@@ -277,11 +279,20 @@ void processInputs()
     // it appears the distance sensor updates at about 60hz, no point in checking more often than that
     if (millis() > plungerReportTime)
     {
+      // restore zero value after a plunge
+      if (zeroValueBuffer)
+      {
+        zeroValue = zeroValueBuffer;
+        zeroValueBuffer = 0;
+      }
       plungerReportTime = millis() + plungerReportDelay;
       int16_t currentDistance = readingToDistance(averageReading);
       distanceBuffer = currentDistance;
-      if (currentDistance < plungerMaxDistance && currentDistance > plungerMinDistance + 50)
+
+      // if plunger is pulled
+      if (currentDistance +50 < plungerMaxDistance && currentDistance > plungerMinDistance + 50)
       {
+        currentlyPlunging = true;
         // Attempt to detect plunge
         int16_t adjustedPlungeTrigger = map(currentDistance, plungerMaxDistance, plungerMinDistance, plungeTrigger/2, plungeTrigger);
         if (currentDistance - lastDistance >= adjustedPlungeTrigger)
@@ -292,6 +303,11 @@ void processInputs()
             plungerReportTime = millis() + 1000;
             distanceBuffer = plungerMaxDistance;
             lastDistance = plungerMaxDistance;
+            if (zeroValue)
+            {
+              zeroValueBuffer = zeroValue;
+              zeroValue = 0;
+            }
             return;
         }
         lastDistance = currentDistance;
@@ -303,6 +319,7 @@ void processInputs()
       // cap max
       else if (currentDistance <= plungerMinDistance + 50)
       {
+        currentlyPlunging = true;
         controller.stickUpdate(STICK_RIGHT, 0, -32768);
         distanceBuffer = plungerMinDistance;
         tiltEnableTime = millis() + 1000;
@@ -311,12 +328,18 @@ void processInputs()
       // cap min
       else if (currentDistance > plungerMaxDistance)
       {
-        controller.stickUpdate(STICK_RIGHT, 0, 0);
+        currentlyPlunging = false;
         distanceBuffer = plungerMaxDistance;
       }
+
+      else if (currentlyPlunging) currentlyPlunging = false;
     }
 
-    controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32768));
+    if (currentlyPlunging)
+    {
+      controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32768));
+    }
+    else controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768));
   }
 
   // Rumble
@@ -395,7 +418,7 @@ void getPlungerMax()
 
 void deadZoneCompensation()
 {
-  zeroValue = map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768) - 10;
+  zeroValue = map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768) + 10;
   if (zeroValue > 0) zeroValue = 0;
   flashStartButton();
   buttonUpdate();
