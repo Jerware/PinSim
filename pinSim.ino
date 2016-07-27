@@ -17,6 +17,10 @@
     If you're not using a plunger, ground Pin 15.
 */
 
+// Serial doesn't work with the Xinput device type
+// This will workaround any errors thrown by library calls to Serial (i.e. prints)
+usb_serial_class Serial;
+
 //Includes
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
