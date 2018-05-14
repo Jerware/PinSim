@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20160620
+    PinSim Controller v20180513
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -7,7 +7,7 @@
     https://github.com/zlittell/MSF-XINPUT
     
     Uses the Teensy-LC
-    
+
     IMPORTANT PLUNGER NOTE:
     You MUST calibrate the plunger range at least once by holding down START
     when plugging in the USB cable. LED-1 should flash rapidly, and then you should
@@ -34,6 +34,7 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
 // GLOBAL VARIABLES
 // configure these
+boolean leftStickJoy = false; // joystick moves left analog stick instead of D-pad
 boolean accelerometerEnabled = true;
 boolean plungerEnabled = true;
 boolean currentlyPlunging = false;
@@ -194,8 +195,30 @@ void buttonUpdate()
 //ProcessInputs
 void processInputs()
 {
-  //Update the DPAD
-  controller.dpadUpdate(buttonStatus[POSUP], buttonStatus[POSDN], buttonStatus[POSLT], buttonStatus[POSRT]);
+  if (leftStickJoy)
+  {
+    int leftStickX = buttonStatus[POSLT] * -30000 + buttonStatus[POSRT] * 30000;
+    int leftStickY = buttonStatus[POSDN] * -30000 + buttonStatus[POSUP] * 30000;
+    controller.stickUpdate(STICK_LEFT, leftStickX, leftStickY);    
+    controller.dpadUpdate(0, 0, 0, 0);
+  }
+  else
+  {
+    //Update the DPAD
+    controller.dpadUpdate(buttonStatus[POSUP], buttonStatus[POSDN], buttonStatus[POSLT], buttonStatus[POSRT]);
+  }
+
+  // If Xbox "Back" and joystick Up pressed simultaneously, map joystick to Xbox Left Stick
+  // If Xbox "Back" and joystick Down pressed, map joystick to D-pad
+  if (leftStickJoy && buttonStatus[POSDN] && buttonStatus[POSBK])
+  {
+    leftStickJoy = false;
+  }
+  else if (!leftStickJoy && buttonStatus[POSUP] && buttonStatus[POSBK])
+  {
+    leftStickJoy = true;
+  }
+
 
   //Buttons
   if (buttonStatus[POSB1]) {controller.buttonUpdate(BUTTON_A, 1);}
@@ -242,7 +265,7 @@ void processInputs()
   //Analog Input
   //Tilt
 
-  if (accelerometerEnabled)
+  if (accelerometerEnabled && !leftStickJoy)
   {
     /* Get a new sensor event */ 
     sensors_event_t event; 
@@ -476,6 +499,7 @@ void setup()
   if (digitalRead(pinRB) == LOW)
   {
     accelerometerEnabled = false;
+    leftStickJoy = true;
   }
 
   /* Initialise the sensor */
