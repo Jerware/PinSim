@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20180513
+    PinSim Controller v20181001
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -9,7 +9,7 @@
     Uses the Teensy-LC
 
     IMPORTANT PLUNGER NOTE:
-    You MUST calibrate the plunger range at least once by holding down START
+    You MUST calibrate the plunger range at least once by holding down "A"
     when plugging in the USB cable. LED-1 should flash rapidly, and then you should
     pull the plunger all the way out and release it all the way back in. The LED1 should
     flash again, and normal operation resumes. The setting is saved between power cycles.
@@ -34,6 +34,9 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
 // GLOBAL VARIABLES
 // configure these
+boolean flipperL1R1 = true; // 
+boolean doubleContactFlippers = false; // pins 13 & 14 used for analog 100%, FLIP_L & FLIP_R are 10%
+boolean analogFlippers = false; // use analog flipper buttons
 boolean leftStickJoy = false; // joystick moves left analog stick instead of D-pad
 boolean accelerometerEnabled = true;
 boolean plungerEnabled = true;
@@ -71,8 +74,8 @@ float zeroY = 0;
 #define pinXB 10  //XBOX Guide Button
 #define pinBK 11  //Button 7 (Back)
 #define pinST 12  //Button 8 (Start)
-#define pinB9 13  //Button 9 (Left Analog Press)
-#define pinB10 14  //Button 10 (Right Analog Press)
+#define pinB9 13  //Button 9 (Left Upper Flipper)
+#define pinB10 14  //Button 10 (Right Upper Flipper)
 #define pinPlunger 15 //IR distance for plunger
 #define pinLED1 16  //Onboard LED 1
 #define pinLED2 17  //Onboard LED 2
@@ -100,6 +103,10 @@ float zeroY = 0;
 #define POSST 12
 #define POSBK 13
 #define POSXB 14
+
+// Dual flippers
+uint8_t leftTrigger = 0;
+uint8_t rightTrigger = 0;
 
 //Global Variables
 byte buttonStatus[NUMBUTTONS];  //array Holds a "Snapshot" of the button status to parse and manipulate
@@ -219,7 +226,17 @@ void processInputs()
     leftStickJoy = true;
   }
 
-
+  // If Xbox "Back" and joystick Left pressed simultaneously, use normal L1 & R1
+  // If Xbox "Back" and joystick Right pressed, use analog L2 & R2
+  if (!flipperL1R1 && buttonStatus[POSLT] && buttonStatus[POSBK])
+  {
+    flipperL1R1 = true;
+  }
+  else if (flipperL1R1 && buttonStatus[POSRT] && buttonStatus[POSBK])
+  {
+    flipperL1R1 = false;
+  }
+  
   //Buttons
   if (buttonStatus[POSB1]) {controller.buttonUpdate(BUTTON_A, 1);}
   else  {controller.buttonUpdate(BUTTON_A, 0);}
@@ -229,50 +246,87 @@ void processInputs()
   else {controller.buttonUpdate(BUTTON_X, 0);}
   if (buttonStatus[POSB4]) {controller.buttonUpdate(BUTTON_Y, 1);}
   else {controller.buttonUpdate(BUTTON_Y, 0);}
-  if (buttonStatus[POSB9]) {controller.buttonUpdate(BUTTON_L3, 1);}
-  else {controller.buttonUpdate(BUTTON_L3, 0);}
-  if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_R3, 1);}
-  else {controller.buttonUpdate(BUTTON_R3, 0);}
 
-  // If A and Left Flipper pressed simultaneously, set new plunger dead zone
+  // If BACK and Left Flipper pressed simultaneously, set new plunger dead zone
   // Compensates for games where the in-game plunger doesn't begin pulling back until
   // the gamepad is pulled back ~half way. Just pull the plunger to the point just before
-  // it begins to move in-game, and then press A & LB.
-  if (buttonStatus[POSB1] && buttonStatus[POSLB])
+  // it begins to move in-game, and then press BACK & LB.
+  if (buttonStatus[POSBK] && buttonStatus[POSLB])
   {
     deadZoneCompensation();
   }
 
-  //Bumpers
-  if (buttonStatus[POSLB]) {controller.buttonUpdate(BUTTON_LB, 1);}
-  else {controller.buttonUpdate(BUTTON_LB, 0);}
-  if (buttonStatus[POSRB]) {controller.buttonUpdate(BUTTON_RB, 1);}
-  else {controller.buttonUpdate(BUTTON_RB, 0);}
-  
-  //Middle Buttons
+  // detect double contact flipper switches tied to GPIO 13 & 14
+  if (!doubleContactFlippers)
+  {
+    if (buttonStatus[POSB9])
+    {
+      flipperL1R1 = false;
+      doubleContactFlippers = true;
+    }
+    if (buttonStatus[POSB10])
+    {
+      flipperL1R1 = false;
+      doubleContactFlippers = true;
+    }
+  }
 
+  //Bumpers
+  if (flipperL1R1)
+  {
+    if (buttonStatus[POSLB]) {controller.buttonUpdate(BUTTON_LB, 1);}
+    else {controller.buttonUpdate(BUTTON_LB, 0);}
+    if (buttonStatus[POSRB]) {controller.buttonUpdate(BUTTON_RB, 1);}
+    else {controller.buttonUpdate(BUTTON_RB, 0);}
+  }
+  else if (!flipperL1R1 && !doubleContactFlippers)
+  {
+    uint8_t leftTrigger = 0;
+    uint8_t rightTrigger = 0;
+    if (buttonStatus[POSLB]) {leftTrigger = 255;}
+    else {leftTrigger = 0;}
+    if (buttonStatus[POSRB]) {rightTrigger = 255;}
+    else {rightTrigger = 0;}
+    controller.triggerUpdate(leftTrigger, rightTrigger);
+  }
+  else if (!flipperL1R1 && doubleContactFlippers)
+  {
+    uint8_t leftTrigger = 0;
+    uint8_t rightTrigger = 0;
+    if (buttonStatus[POSLB] && buttonStatus[POSB9]) {leftTrigger = 255;}
+    else if (buttonStatus[POSLB] && !buttonStatus[POSB9]) {leftTrigger = 25;}
+    else if (!buttonStatus[POSLB] && !buttonStatus[POSB9]) {leftTrigger = 0;}
+    if (buttonStatus[POSRB] && buttonStatus[POSB10]) {rightTrigger = 255;}
+    else if (buttonStatus[POSRB] && !buttonStatus[POSB10]) {rightTrigger = 25;}
+    else if (!buttonStatus[POSRB] && !buttonStatus[POSB10]) {rightTrigger = 0;}
+    controller.triggerUpdate(leftTrigger, rightTrigger);
+  }
+
+  //Middle Buttons
   if (buttonStatus[POSST]&&buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_LOGO, 1);}
   else if (buttonStatus[POSST]){controller.buttonUpdate(BUTTON_START, 1);}
   else if (buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_BACK, 1);}
   else if (buttonStatus[POSXB]){controller.buttonUpdate(BUTTON_LOGO, 1);}
   else {controller.buttonUpdate(BUTTON_LOGO, 0); controller.buttonUpdate(BUTTON_START, 0); controller.buttonUpdate(BUTTON_BACK, 0);}
 
-  //Triggers
-//  uint8_t leftTrigger = map(analogRead(A7), 0, 1023, 0, 255);
-//  uint8_t rightTrigger = map(analogRead(A9), 0, 1023, 0, 255);
-//  controller.triggerUpdate(leftTrigger, rightTrigger);
+  //Experimental Analog Input
+  //Analog flippers
+  if (analogFlippers)
+  {
+    uint8_t leftTrigger = map(analogRead(pinLT), 0, 512, 0, 255);
+    uint8_t rightTrigger = map(analogRead(pinRT), 0, 512, 0, 255);
+    controller.triggerUpdate(leftTrigger, rightTrigger);
+  }
   
-  //Analog Input
   //Tilt
-
   if (accelerometerEnabled && !leftStickJoy)
   {
     /* Get a new sensor event */ 
     sensors_event_t event; 
     accel.getEvent(&event);
 
-    // zero accelerometer whenever A is pushed (PinSim Yellow Start Button)
-    if (buttonStatus[POSB1])
+    // zero accelerometer whenever START is pushed (PinSim Yellow Start Button)
+    if (buttonStatus[POSST])
     {
       zeroX = event.acceleration.x * nudgeMultiplier * -1;
       zeroY = event.acceleration.y * nudgeMultiplier * -1;
@@ -521,7 +575,7 @@ void setup()
     // accel.setRange(ADXL345_RANGE_4_G);
     accel.setRange(ADXL345_RANGE_2_G);
     
-    delay(1000);
+    delay(2500); // time to lower the cabinet lid
     sensors_event_t event; 
     accel.getEvent(&event);
     zeroX = event.acceleration.x * nudgeMultiplier * -1;
