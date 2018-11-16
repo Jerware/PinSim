@@ -44,8 +44,8 @@ Optionally: If GPIO 13 or 14 are ever grounded (pressed), PinSim will automatica
 
 #### New features & improvements added 6/20/2016:
 
-* Pressing LB & A simultaneously sets plunger dead zone. This compensates for PC pinball games that have a huge plunger dead zone that works on Gamepads but is accentuated on real hardware. Just pull the plunger until just before the one in-game starts to move and then hit LB & A with your other hand. This setting is not saved between power cycles.
-* The accelerometer is zeroed out every time A is pressed.
+* Pressing LB & Back simultaneously sets plunger dead zone. This compensates for PC pinball games that have a huge plunger dead zone that works on Gamepads but is accentuated on real hardware. Just pull the plunger until just before the one in-game starts to move and then hit LB & A with your other hand. This setting is not saved between power cycles.
+* The accelerometer is zeroed out every time Start is pressed.
 * Hold left flipper on boot to perform a rumble test.
 * Hold right flipper on boot to disable accelerometer.
 * Better plunge detection code that scales based on how far back the plunger is pulled.
