@@ -21,8 +21,8 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 #### OPTIONS OVERVIEW:
 
 * BACK + LEFT FLIPPER: Home analog plunger (if installed)
-* BACK + DOWN: Joystick controls D-PAD (default)
-* BACK + UP: Joystick controls left analog stick
+* BACK + JOYSTICK DOWN: Joystick controls D-PAD (default)
+* BACK + JOYSTICK UP: Joystick controls left analog stick
 * BACK + JOYSTICK LEFT: L1 & R1 flippers (default)
 * BACK + JOYSTICK RIGHT: L2 & R2 flippers
 
