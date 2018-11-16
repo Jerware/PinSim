@@ -20,13 +20,13 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 
 #### OPTIONS OVERVIEW:
 
-* BACK + LEFT FLIPPER: Home plunger
+* BACK + LEFT FLIPPER: Home analog plunger (if installed)
 * BACK + DOWN: Joystick controls D-PAD (default)
 * BACK + UP: Joystick controls left analog stick
 * BACK + JOYSTICK LEFT: L1 & R1 flippers (default)
 * BACK + JOYSTICK RIGHT: L2 & R2 flippers
 
-Note: You MUST calibrate the plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
+Note: If installed, you MUST calibrate the analog plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
 
 #### New features added 11/15/2018:
 
