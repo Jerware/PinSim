@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20181001
+    PinSim Controller v20181214
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -34,8 +34,9 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
 // GLOBAL VARIABLES
 // configure these
-boolean flipperL1R1 = true; // 
-boolean doubleContactFlippers = false; // pins 13 & 14 used for analog 100%, FLIP_L & FLIP_R are 10%
+boolean flipperL1R1 = true; //
+boolean fourFlipperButtons = false; // FLIP_L & FLIP_R map to L1/R1 and pins 13 & 14 map to analog L2/R2 100%
+boolean doubleContactFlippers = false; // FLIP_L & FLIP_R map to analog L2/R2 10% and pins 13 & 14 map to L2/R2 100% 
 boolean analogFlippers = false; // use analog flipper buttons
 boolean leftStickJoy = false; // joystick moves left analog stick instead of D-pad
 boolean accelerometerEnabled = true;
@@ -257,38 +258,73 @@ void processInputs()
   }
 
   // detect double contact flipper switches tied to GPIO 13 & 14
-  if (!doubleContactFlippers)
+  if (!doubleContactFlippers && !fourFlipperButtons)
   {
-    if (buttonStatus[POSB9])
+    if (buttonStatus[POSB9] && buttonStatus[POSLB])
     {
       flipperL1R1 = false;
       doubleContactFlippers = true;
     }
-    if (buttonStatus[POSB10])
+    if (buttonStatus[POSB10] && buttonStatus[POSRB])
     {
       flipperL1R1 = false;
       doubleContactFlippers = true;
     }
   }
 
-  //Bumpers
+  // detect four flipper buttons, second pair tied to GPIO 13 & 14
+  // detection occurs if GPIO 13 is pressed WITHOUT FLIP_L being pressed
+  // or GPIO 14 without FLIP_R being pressed (not possible with double contact switch)
+  if (!fourFlipperButtons)
+  {
+    if (buttonStatus[POSB9] && !buttonStatus[POSLB])
+    {
+      flipperL1R1 = true;
+      fourFlipperButtons = true;
+      doubleContactFlippers = false;
+    }
+    if (buttonStatus[POSB10] && !buttonStatus[POSRB])
+    {
+      flipperL1R1 = true;
+      fourFlipperButtons = true;
+      doubleContactFlippers = false;
+    }
+  }
+
+  // Bumpers
+  // Standard mode: FLIP_L and FLIP_R map to L1/R1, and optionally GPIO 13 & 14 map to L2/R2
   if (flipperL1R1)
   {
+    uint8_t leftTrigger = 0;
+    uint8_t rightTrigger = 0;
     if (buttonStatus[POSLB]) {controller.buttonUpdate(BUTTON_LB, 1);}
     else {controller.buttonUpdate(BUTTON_LB, 0);}
     if (buttonStatus[POSRB]) {controller.buttonUpdate(BUTTON_RB, 1);}
     else {controller.buttonUpdate(BUTTON_RB, 0);}
+    if (buttonStatus[POSB9]) leftTrigger = 255;
+    else leftTrigger = 0;
+    if (buttonStatus[POSB10]) rightTrigger = 255;
+    else rightTrigger = 0;
+    controller.triggerUpdate(leftTrigger, rightTrigger);
   }
+
+  // L2/R2 Flippers (standard mode swapped)
   else if (!flipperL1R1 && !doubleContactFlippers)
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
+    if (buttonStatus[POSB9]) {controller.buttonUpdate(BUTTON_LB, 1);}
+    else {controller.buttonUpdate(BUTTON_LB, 0);}
+    if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_RB, 1);}
+    else {controller.buttonUpdate(BUTTON_RB, 0);}
     if (buttonStatus[POSLB]) {leftTrigger = 255;}
     else {leftTrigger = 0;}
     if (buttonStatus[POSRB]) {rightTrigger = 255;}
     else {rightTrigger = 0;}
     controller.triggerUpdate(leftTrigger, rightTrigger);
   }
+
+  // Double Contact Flippers
   else if (!flipperL1R1 && doubleContactFlippers)
   {
     uint8_t leftTrigger = 0;
@@ -500,7 +536,7 @@ void deadZoneCompensation()
   flashStartButton();
   buttonUpdate();
   // ensure just one calibration per button press
-  while (digitalRead(pinB1) == LOW)
+  while (digitalRead(POSBK) == LOW)
   {
     // wait...
   }
@@ -587,8 +623,9 @@ void setup()
   plungerMin = getPlungerAverage();
   if (plungerEnabled) plungerMax = EEPROM.readInt(0);
 
-  // to calibrate, hold A when plugging in the Teensy LC
+  // to calibrate, hold A or START when plugging in the Teensy LC
   if (digitalRead(pinB1) == LOW) getPlungerMax();
+  else if (digitalRead(pinST) == LOW) getPlungerMax();
 
   // linear conversions
   if (plungerEnabled)

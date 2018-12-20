@@ -28,12 +28,17 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 
 Note: If installed, you MUST calibrate the analog plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
 
+#### New features added 12/19/2018:
+
+* Four flipper button support. You can connect a second pair of flipper buttons to GPIO 13 & 14 (Left and Right, respectively) which will map to analog L2/R2 100%. The system will try to autodetect if GPIO 13/14 are connected to double contact or individual switches based on whether GPIO 13/14 are ever pressed *without* FLIP_L or FLIP_R being pressed (not possible on double contact switches).
+* Minor bug fixes.
+
 #### New features added 11/15/2018:
 
 * Hold Back and press Right on the joystick to map flippers to L2 & R2 analog triggers. This is required by some pinball games.
 * Hold Back and press Left on the joystick to map flippers to L1 & R1 buttons (default).
 
-Optionally: If GPIO 13 or 14 are ever grounded (pressed), PinSim will automatically switch to double contact flipper mode where FLIP_L & FLIP_R depress the analog triggers by 10%, and GPIO 13 & 14 depress them fully. This allows you to connect PinSim to double contact leaf switches to control lower and upper flippers independently (when supported by the game). 
+Optionally: You can connect GPIO 13 or 14 to the second stage of double contact switches so FLIP_L & FLIP_R depress the analog triggers by 10% and GPIO 13 & 14 depress them fully. This allows you to control lower and upper flippers independently using a single button (when supported by the game).
 
 (Huge thanks to James Ricalde for his great suggestions and thorough beta testing!)
 
