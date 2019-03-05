@@ -167,6 +167,7 @@ void setupPins()
     pinMode(pinB10, INPUT_PULLUP);
     pinMode(pinST, INPUT_PULLUP);
     pinMode(pinBK, INPUT_PULLUP);
+    pinMode(pinXB, INPUT_PULLUP);
     pinMode(pinLED1, OUTPUT);
     pinMode(pinLED2, OUTPUT);
     //Set the LED to low to make sure it is off
