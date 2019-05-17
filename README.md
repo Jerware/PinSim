@@ -21,12 +21,19 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 #### OPTIONS OVERVIEW:
 
 * BACK + LEFT FLIPPER: Home analog plunger (if installed)
+* BACK + RIGHT FLIPPER: Home/Zero accelerometer
 * BACK + JOYSTICK DOWN: Joystick controls D-PAD (default)
 * BACK + JOYSTICK UP: Joystick controls left analog stick
 * BACK + JOYSTICK LEFT: L1 & R1 flippers (default)
 * BACK + JOYSTICK RIGHT: L2 & R2 flippers
 
 Note: If installed, you MUST calibrate the analog plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
+
+#### New features added 05/16/2019:
+
+* Accelerometer is only zeroed the first time START is pressed, not every time. To zero it again, use the new BACK + RIGHT FLIPPER button combo.
+* Plunger base position is now stored between power cycles. You will need to recalibrate the plunger once if upgrading to this firmware by holding A when plugging in the USB cable.
+* Auto-detection of four button mode has been improved (avoid false positives).
 
 #### New features added 12/19/2018:
 

@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20181214
+    PinSim Controller v20190511
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -40,12 +40,16 @@ boolean doubleContactFlippers = false; // FLIP_L & FLIP_R map to analog L2/R2 10
 boolean analogFlippers = false; // use analog flipper buttons
 boolean leftStickJoy = false; // joystick moves left analog stick instead of D-pad
 boolean accelerometerEnabled = true;
+boolean accelerometerCalibrated = false;
 boolean plungerEnabled = true;
 boolean currentlyPlunging = false;
 int16_t nudgeMultiplier = 9000; // accelerometer multiplier (higher = more sensitive)
 int16_t plungeTrigger = 60; // threshold to trigger a plunge (lower = more sensitive)
+int16_t fourButtonModeThreshold = 250; // ms that pins 13/14 need to close WITHOUT FLIP_L/FLIP_R closing to trigger four flipper button mode.
 
 // probably leave these alone
+long fourButtonModeTriggeredLB = 0; // these two vars are used to check for 4 flipper buttons
+long fourButtonModeTriggeredRB = 0;
 int16_t zeroValue = 0; // xbox 360 value for neutral analog stick
 int16_t zeroValueBuffer = 0; // save zero value during plunge
 int16_t plungerReportDelay = 17; // delay in ms between reading ~60hz plunger updates from sensor
@@ -276,20 +280,42 @@ void processInputs()
   // detect four flipper buttons, second pair tied to GPIO 13 & 14
   // detection occurs if GPIO 13 is pressed WITHOUT FLIP_L being pressed
   // or GPIO 14 without FLIP_R being pressed (not possible with double contact switch)
+  // 20190511 - Switch must be closed for ~250 ms in order to qualify mode change.
   if (!fourFlipperButtons)
   {
     if (buttonStatus[POSB9] && !buttonStatus[POSLB])
     {
-      flipperL1R1 = true;
-      fourFlipperButtons = true;
-      doubleContactFlippers = false;
+      long currentTime = millis();
+      if (fourButtonModeTriggeredLB == 0)
+      {
+        fourButtonModeTriggeredLB = currentTime;
+      }
+      else if (currentTime > fourButtonModeTriggeredLB + fourButtonModeThreshold)
+      {
+        flipperL1R1 = true;
+        fourFlipperButtons = true;
+        doubleContactFlippers = false;
+      }
     }
+    // reset check timer if necessary
+    else if (fourButtonModeTriggeredLB > 0) fourButtonModeTriggeredLB = 0;
+
     if (buttonStatus[POSB10] && !buttonStatus[POSRB])
     {
-      flipperL1R1 = true;
-      fourFlipperButtons = true;
-      doubleContactFlippers = false;
+      long currentTime = millis();
+      if (fourButtonModeTriggeredRB == 0)
+      {
+        fourButtonModeTriggeredRB = currentTime;
+      }
+      else if (currentTime > fourButtonModeTriggeredRB + fourButtonModeThreshold)
+      {
+        flipperL1R1 = true;
+        fourFlipperButtons = true;
+        doubleContactFlippers = false;
+      }
     }
+    // reset check timer if necessary
+    else if (fourButtonModeTriggeredRB > 0) fourButtonModeTriggeredRB = 0;
   }
 
   // Bumpers
@@ -362,13 +388,22 @@ void processInputs()
     sensors_event_t event; 
     accel.getEvent(&event);
 
-    // zero accelerometer whenever START is pushed (PinSim Yellow Start Button)
-    if (buttonStatus[POSST])
+    // Zero accelerometer when START is first pressed (PinSim Yellow Start Button)
+    if (buttonStatus[POSST] && !accelerometerCalibrated)
     {
+      accelerometerCalibrated = true;
       zeroX = event.acceleration.x * nudgeMultiplier * -1;
       zeroY = event.acceleration.y * nudgeMultiplier * -1;
     }
-  
+
+    // Re-calibrate accelerometer if both BACK and RIGHT FLIPPER pressed
+    if (buttonStatus[POSBK] && buttonStatus[POSRB])
+    {
+      accelerometerCalibrated = true;
+      zeroX = event.acceleration.x * nudgeMultiplier * -1;
+      zeroY = event.acceleration.y * nudgeMultiplier * -1;
+    }
+
     int leftStickX = zeroX + (event.acceleration.x * nudgeMultiplier);
     int leftStickY = zeroY + (event.acceleration.y * nudgeMultiplier);
     if (millis() > tiltEnableTime)
@@ -499,6 +534,7 @@ uint16_t getPlungerAverage()
 void getPlungerMax()
 {
   flashStartButton();
+  plungerMin = getPlungerAverage();
   plungerMax = plungerMin + 1;
   int averageReading = ave.mean();
   while (averageReading < plungerMin + 100)
@@ -527,6 +563,7 @@ void getPlungerMax()
   }
 
   EEPROM.writeInt(0,plungerMax);
+  EEPROM.writeInt(10,plungerMin);
   flashStartButton();
 }
 
@@ -622,7 +659,12 @@ void setup()
 
   // plunger setup
   plungerMin = getPlungerAverage();
-  if (plungerEnabled) plungerMax = EEPROM.readInt(0);
+  if (plungerEnabled) 
+  {
+    plungerMax = EEPROM.readInt(0);
+    plungerMin = EEPROM.readInt(10);
+  }
+  else plungerMin = getPlungerAverage();
 
   // to calibrate, hold A or START when plugging in the Teensy LC
   if (digitalRead(pinB1) == LOW) getPlungerMax();
@@ -631,9 +673,9 @@ void setup()
   // linear conversions
   if (plungerEnabled)
   {
-     plungerMaxDistance = readingToDistance(plungerMin);
-     plungerMinDistance = readingToDistance(plungerMax);
-     lastDistance = plungerMaxDistance;
+    plungerMaxDistance = readingToDistance(plungerMin);
+    plungerMinDistance = readingToDistance(plungerMax);
+    lastDistance = plungerMaxDistance;
   }
 }
 
