@@ -29,6 +29,10 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 
 Note: If installed, you MUST calibrate the analog plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
 
+#### New features added 05/17/2020:
+
+* GPIO 21 & 23 connected to L3 & R3 (analog stick buttons). These GPIO pins were previously unused.
+
 #### New features added 05/16/2019:
 
 * Accelerometer is only zeroed the first time START is pressed, not every time. To zero it again, use the new BACK + RIGHT FLIPPER button combo.

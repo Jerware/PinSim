@@ -1,5 +1,5 @@
 /*
-    PinSim Controller v20190511
+    PinSim Controller v20200517
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
     
@@ -75,21 +75,21 @@ float zeroY = 0;
 #define pinB3 6  //Button 3 (X) 
 #define pinB4 7  //Button 4 (Y) 
 #define pinLB 8  //Button 5 (LB)
-#define pinRB 9  //Button 6 (RB)
+#define pinRB 9  //Button 6 (RB) 
 #define pinXB 10  //XBOX Guide Button
 #define pinBK 11  //Button 7 (Back)
 #define pinST 12  //Button 8 (Start)
-#define pinB9 13  //Button 9 (Left Upper Flipper)
-#define pinB10 14  //Button 10 (Right Upper Flipper)
+#define pinLT 13  //Left Analog Trigger
+#define pinRT 14  //Right Analog Trigger
 #define pinPlunger 15 //IR distance for plunger
 #define pinLED1 16  //Onboard LED 1
 #define pinLED2 17  //Onboard LED 2
 #define rumbleSmall 20 // Large Rumble Motor
 #define rumbleLarge 22 // Large Rumble Motor
-#define pinLT 21 //Left Analog Trigger
-#define pinRT 23 //Right Analog Trigger
+#define pinB9 21 //Button 9 (L3)
+#define pinB10 23 //Button 10 (R3)
 
-#define NUMBUTTONS 15  //Number of all buttons
+#define NUMBUTTONS 17  //Number of all buttons
 #define MILLIDEBOUNCE 20  //Debounce time in milliseconds
 
 //Position of a button in the button status array
@@ -101,13 +101,15 @@ float zeroY = 0;
 #define POSB2 5
 #define POSB3 6
 #define POSB4 7
-#define POSLB 8
-#define POSRB 9
-#define POSB9 10
-#define POSB10 11
+#define POSL1 8
+#define POSR1 9
+#define POSL2 10
+#define POSR2 11
 #define POSST 12
 #define POSBK 13
 #define POSXB 14
+#define POSB9 15
+#define POSB10 16
 
 // Dual flippers
 uint8_t leftTrigger = 0;
@@ -143,11 +145,13 @@ Bounce button3 = Bounce(pinB3, MILLIDEBOUNCE);
 Bounce button4 = Bounce(pinB4, MILLIDEBOUNCE);
 Bounce buttonLB = Bounce(pinLB, MILLIDEBOUNCE);
 Bounce buttonRB = Bounce(pinRB, MILLIDEBOUNCE);
-Bounce button9 = Bounce(pinB9, MILLIDEBOUNCE);
-Bounce button10 = Bounce(pinB10, MILLIDEBOUNCE);
+Bounce buttonLT = Bounce(pinLT, MILLIDEBOUNCE);
+Bounce buttonRT = Bounce(pinRT, MILLIDEBOUNCE);
 Bounce buttonSTART = Bounce(pinST, MILLIDEBOUNCE);
 Bounce buttonBACK = Bounce(pinBK, MILLIDEBOUNCE);
 Bounce buttonXBOX = Bounce(pinXB, MILLIDEBOUNCE);
+Bounce button9 = Bounce(pinB9, MILLIDEBOUNCE);
+Bounce button10 = Bounce(pinB10, MILLIDEBOUNCE);
 
 //Initiate the xinput class and setup the LED pin
 XINPUT controller(LED_ENABLED, pinLED1);
@@ -167,8 +171,8 @@ void setupPins()
     pinMode(pinB4, INPUT_PULLUP);
     pinMode(pinLB, INPUT_PULLUP);
     pinMode(pinRB, INPUT_PULLUP);
-    pinMode(pinB9, INPUT_PULLUP);
-    pinMode(pinB10, INPUT_PULLUP);
+    pinMode(pinLT, INPUT_PULLUP);
+    pinMode(pinRT, INPUT_PULLUP);
     pinMode(pinST, INPUT_PULLUP);
     pinMode(pinBK, INPUT_PULLUP);
     pinMode(pinXB, INPUT_PULLUP);
@@ -181,6 +185,9 @@ void setupPins()
     //Rumble
     pinMode(rumbleSmall, OUTPUT);
     pinMode(rumbleLarge, OUTPUT);
+    //L3 & R3
+    pinMode(pinB9, INPUT_PULLUP);
+    pinMode(pinB10, INPUT_PULLUP);    
 }
 
 //Update the debounced button statuses
@@ -196,13 +203,15 @@ void buttonUpdate()
   if (button2.update()) {buttonStatus[POSB2] = button2.fallingEdge();}
   if (button3.update()) {buttonStatus[POSB3] = button3.fallingEdge();}
   if (button4.update()) {buttonStatus[POSB4] = button4.fallingEdge();}
-  if (buttonLB.update()) {buttonStatus[POSLB] = buttonLB.fallingEdge();}
-  if (buttonRB.update()) {buttonStatus[POSRB] = buttonRB.fallingEdge();}
-  if (button9.update()) {buttonStatus[POSB9] = button9.fallingEdge();}
-  if (button10.update()) {buttonStatus[POSB10] = button10.fallingEdge();}
+  if (buttonLB.update()) {buttonStatus[POSL1] = buttonLB.fallingEdge();}
+  if (buttonRB.update()) {buttonStatus[POSR1] = buttonRB.fallingEdge();}
+  if (buttonLT.update()) {buttonStatus[POSL2] = buttonLT.fallingEdge();}
+  if (buttonRT.update()) {buttonStatus[POSR2] = buttonRT.fallingEdge();}
   if (buttonSTART.update()) {buttonStatus[POSST] = buttonSTART.fallingEdge();}
   if (buttonBACK.update()) {buttonStatus[POSBK] = buttonBACK.fallingEdge();}
   if (buttonXBOX.update()) {buttonStatus[POSXB] = buttonXBOX.fallingEdge();}
+  if (button9.update()) {buttonStatus[POSB9] = button9.fallingEdge();}
+  if (button10.update()) {buttonStatus[POSB10] = button10.fallingEdge();}
 }
 
 //ProcessInputs
@@ -252,12 +261,16 @@ void processInputs()
   else {controller.buttonUpdate(BUTTON_X, 0);}
   if (buttonStatus[POSB4]) {controller.buttonUpdate(BUTTON_Y, 1);}
   else {controller.buttonUpdate(BUTTON_Y, 0);}
+  if (buttonStatus[POSB9]) {controller.buttonUpdate(BUTTON_L3, 1);}
+  else  {controller.buttonUpdate(BUTTON_L3, 0);}
+  if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_R3, 1);}
+  else {controller.buttonUpdate(BUTTON_R3, 0);}
 
   // If BACK and Left Flipper pressed simultaneously, set new plunger dead zone
   // Compensates for games where the in-game plunger doesn't begin pulling back until
   // the gamepad is pulled back ~half way. Just pull the plunger to the point just before
   // it begins to move in-game, and then press BACK & LB.
-  if (buttonStatus[POSBK] && buttonStatus[POSLB])
+  if (buttonStatus[POSBK] && buttonStatus[POSL1])
   {
     deadZoneCompensation();
   }
@@ -265,12 +278,12 @@ void processInputs()
   // detect double contact flipper switches tied to GPIO 13 & 14
   if (!doubleContactFlippers && !fourFlipperButtons)
   {
-    if (buttonStatus[POSB9] && buttonStatus[POSLB])
+    if (buttonStatus[POSL2] && buttonStatus[POSL1])
     {
       flipperL1R1 = false;
       doubleContactFlippers = true;
     }
-    if (buttonStatus[POSB10] && buttonStatus[POSRB])
+    if (buttonStatus[POSR2] && buttonStatus[POSR1])
     {
       flipperL1R1 = false;
       doubleContactFlippers = true;
@@ -283,7 +296,7 @@ void processInputs()
   // 20190511 - Switch must be closed for ~250 ms in order to qualify mode change.
   if (!fourFlipperButtons)
   {
-    if (buttonStatus[POSB9] && !buttonStatus[POSLB])
+    if (buttonStatus[POSL2] && !buttonStatus[POSL1])
     {
       long currentTime = millis();
       if (fourButtonModeTriggeredLB == 0)
@@ -300,7 +313,7 @@ void processInputs()
     // reset check timer if necessary
     else if (fourButtonModeTriggeredLB > 0) fourButtonModeTriggeredLB = 0;
 
-    if (buttonStatus[POSB10] && !buttonStatus[POSRB])
+    if (buttonStatus[POSR2] && !buttonStatus[POSR1])
     {
       long currentTime = millis();
       if (fourButtonModeTriggeredRB == 0)
@@ -324,13 +337,13 @@ void processInputs()
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
-    if (buttonStatus[POSLB]) {controller.buttonUpdate(BUTTON_LB, 1);}
+    if (buttonStatus[POSL1]) {controller.buttonUpdate(BUTTON_LB, 1);}
     else {controller.buttonUpdate(BUTTON_LB, 0);}
-    if (buttonStatus[POSRB]) {controller.buttonUpdate(BUTTON_RB, 1);}
+    if (buttonStatus[POSR1]) {controller.buttonUpdate(BUTTON_RB, 1);}
     else {controller.buttonUpdate(BUTTON_RB, 0);}
-    if (buttonStatus[POSB9]) leftTrigger = 255;
+    if (buttonStatus[POSL2]) leftTrigger = 255;
     else leftTrigger = 0;
-    if (buttonStatus[POSB10]) rightTrigger = 255;
+    if (buttonStatus[POSR2]) rightTrigger = 255;
     else rightTrigger = 0;
     controller.triggerUpdate(leftTrigger, rightTrigger);
   }
@@ -340,13 +353,13 @@ void processInputs()
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
-    if (buttonStatus[POSB9]) {controller.buttonUpdate(BUTTON_LB, 1);}
+    if (buttonStatus[POSL2]) {controller.buttonUpdate(BUTTON_LB, 1);}
     else {controller.buttonUpdate(BUTTON_LB, 0);}
-    if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_RB, 1);}
+    if (buttonStatus[POSR2]) {controller.buttonUpdate(BUTTON_RB, 1);}
     else {controller.buttonUpdate(BUTTON_RB, 0);}
-    if (buttonStatus[POSLB]) {leftTrigger = 255;}
+    if (buttonStatus[POSL1]) {leftTrigger = 255;}
     else {leftTrigger = 0;}
-    if (buttonStatus[POSRB]) {rightTrigger = 255;}
+    if (buttonStatus[POSR1]) {rightTrigger = 255;}
     else {rightTrigger = 0;}
     controller.triggerUpdate(leftTrigger, rightTrigger);
   }
@@ -356,12 +369,12 @@ void processInputs()
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
-    if (buttonStatus[POSLB] && buttonStatus[POSB9]) {leftTrigger = 255;}
-    else if (buttonStatus[POSLB] && !buttonStatus[POSB9]) {leftTrigger = 25;}
-    else if (!buttonStatus[POSLB] && !buttonStatus[POSB9]) {leftTrigger = 0;}
-    if (buttonStatus[POSRB] && buttonStatus[POSB10]) {rightTrigger = 255;}
-    else if (buttonStatus[POSRB] && !buttonStatus[POSB10]) {rightTrigger = 25;}
-    else if (!buttonStatus[POSRB] && !buttonStatus[POSB10]) {rightTrigger = 0;}
+    if (buttonStatus[POSL1] && buttonStatus[POSL2]) {leftTrigger = 255;}
+    else if (buttonStatus[POSL1] && !buttonStatus[POSL2]) {leftTrigger = 25;}
+    else if (!buttonStatus[POSL1] && !buttonStatus[POSL2]) {leftTrigger = 0;}
+    if (buttonStatus[POSR1] && buttonStatus[POSR2]) {rightTrigger = 255;}
+    else if (buttonStatus[POSR1] && !buttonStatus[POSR2]) {rightTrigger = 25;}
+    else if (!buttonStatus[POSR1] && !buttonStatus[POSR2]) {rightTrigger = 0;}
     controller.triggerUpdate(leftTrigger, rightTrigger);
   }
 
@@ -397,7 +410,7 @@ void processInputs()
     }
 
     // Re-calibrate accelerometer if both BACK and RIGHT FLIPPER pressed
-    if (buttonStatus[POSBK] && buttonStatus[POSRB])
+    if (buttonStatus[POSBK] && buttonStatus[POSR1])
     {
       accelerometerCalibrated = true;
       zeroX = event.acceleration.x * nudgeMultiplier * -1;
@@ -469,7 +482,7 @@ void processInputs()
       else if (currentDistance <= plungerMinDistance + 50)
       {
         currentlyPlunging = true;
-        controller.stickUpdate(STICK_RIGHT, 0, -32768);
+        controller.stickUpdate(STICK_RIGHT, 0, -32760);
         distanceBuffer = plungerMinDistance;
         tiltEnableTime = millis() + 1000;
       }
@@ -486,9 +499,9 @@ void processInputs()
 
     if (currentlyPlunging)
     {
-      controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32768));
+      controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32760));
     }
-    else controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32768));
+    else controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32760));
   }
 
   // Rumble
