@@ -3,7 +3,7 @@ XInput Game Controller for PC Pinball Games
 
 Based on the excellent [MSF_FightStick XINPUT](https://github.com/zlittell/MSF-XINPUT) project by Zack "Reaper" Littell
 
-#### The complete project build guide, along with PCB links, wiring schematics, and 3D STL files, is [hosted here](https://github.com/Jerware/PinSim/blob/master/pinsim_instructions.pdf).
+#### The complete project build guide, along with PCB links, wiring schematics, and 3D STL files, is [hosted here](https://github.com/Jerware/PinSim/blob/master/pinsim_instructions.pdf) and backed up on [Archive.org](https://web.archive.org/web/20180209074729/https://www.tested.com/tech/gaming/569647-how-build-pinsim-virtual-reality-pinball-machine/).
 
 This code is designed to run on Teensy LC and requires the following libraries:
 
