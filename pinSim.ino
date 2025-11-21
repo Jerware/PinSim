@@ -1,12 +1,10 @@
 /*
-    PinSim Controller v20200517
+    PinSim Controller v20251121
     Controller for PC Pinball games
     https://www.youtube.com/watch?v=18EcIxywXHg
-    
-    Based on the excellent MSF_FightStick XINPUT project by Zack "Reaper" Littell
-    https://github.com/zlittell/MSF-XINPUT
-    
-    Uses the Teensy-LC
+
+    Based on the Arduino XInput Library by David Madison
+    https://github.com/dmadison/ArduinoXInput
 
     IMPORTANT PLUNGER NOTE:
     You MUST calibrate the plunger range at least once by holding down "A"
@@ -22,7 +20,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_ADXL345_U.h>
 #include <Bounce.h>
-#include "xinput.h"
+#include <XInput.h>
 #include <Average.h>
 #include <EEPROMex.h>
 
@@ -36,7 +34,7 @@ Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 // configure these
 boolean flipperL1R1 = true; //
 boolean fourFlipperButtons = false; // FLIP_L & FLIP_R map to L1/R1 and pins 13 & 14 map to analog L2/R2 100%
-boolean doubleContactFlippers = false; // FLIP_L & FLIP_R map to analog L2/R2 10% and pins 13 & 14 map to L2/R2 100% 
+boolean doubleContactFlippers = false; // FLIP_L & FLIP_R map to analog L2/R2 10% and pins 13 & 14 map to L2/R2 100%
 boolean analogFlippers = false; // use analog flipper buttons
 boolean leftStickJoy = false; // joystick moves left analog stick instead of D-pad
 boolean accelerometerEnabled = true;
@@ -70,12 +68,12 @@ float zeroY = 0;
 #define pinDpadR 1  //Right on DPAD
 #define pinDpadU 2  //Up on DPAD
 #define pinDpadD 3  //Down on DPAD
-#define pinB1 4  //Button 1 (A) 
-#define pinB2 5  //Button 2 (B) 
-#define pinB3 6  //Button 3 (X) 
-#define pinB4 7  //Button 4 (Y) 
+#define pinB1 4  //Button 1 (A)
+#define pinB2 5  //Button 2 (B)
+#define pinB3 6  //Button 3 (X)
+#define pinB4 7  //Button 4 (Y)
 #define pinLB 8  //Button 5 (LB)
-#define pinRB 9  //Button 6 (RB) 
+#define pinRB 9  //Button 6 (RB)
 #define pinXB 10  //XBOX Guide Button
 #define pinBK 11  //Button 7 (Back)
 #define pinST 12  //Button 8 (Start)
@@ -153,8 +151,7 @@ Bounce buttonXBOX = Bounce(pinXB, MILLIDEBOUNCE);
 Bounce button9 = Bounce(pinB9, MILLIDEBOUNCE);
 Bounce button10 = Bounce(pinB10, MILLIDEBOUNCE);
 
-//Initiate the xinput class and setup the LED pin
-XINPUT controller(LED_ENABLED, pinLED1);
+// XInput is now a global object, no initialization needed here
 
 //void Configure Inputs and Outputs
 void setupPins()
@@ -187,7 +184,7 @@ void setupPins()
     pinMode(rumbleLarge, OUTPUT);
     //L3 & R3
     pinMode(pinB9, INPUT_PULLUP);
-    pinMode(pinB10, INPUT_PULLUP);    
+    pinMode(pinB10, INPUT_PULLUP);
 }
 
 //Update the debounced button statuses
@@ -221,13 +218,13 @@ void processInputs()
   {
     int leftStickX = buttonStatus[POSLT] * -30000 + buttonStatus[POSRT] * 30000;
     int leftStickY = buttonStatus[POSDN] * -30000 + buttonStatus[POSUP] * 30000;
-    controller.stickUpdate(STICK_LEFT, leftStickX, leftStickY);    
-    controller.dpadUpdate(0, 0, 0, 0);
+    XInput.setJoystick(JOY_LEFT, leftStickX, leftStickY);
+    XInput.setDpad(false, false, false, false);
   }
   else
   {
     //Update the DPAD
-    controller.dpadUpdate(buttonStatus[POSUP], buttonStatus[POSDN], buttonStatus[POSLT], buttonStatus[POSRT]);
+    XInput.setDpad(buttonStatus[POSUP], buttonStatus[POSDN], buttonStatus[POSLT], buttonStatus[POSRT]);
   }
 
   // If Xbox "Back" and joystick Up pressed simultaneously, map joystick to Xbox Left Stick
@@ -251,20 +248,20 @@ void processInputs()
   {
     flipperL1R1 = false;
   }
-  
+
   //Buttons
-  if (buttonStatus[POSB1]) {controller.buttonUpdate(BUTTON_A, 1);}
-  else  {controller.buttonUpdate(BUTTON_A, 0);}
-  if (buttonStatus[POSB2]) {controller.buttonUpdate(BUTTON_B, 1);}
-  else {controller.buttonUpdate(BUTTON_B, 0);}
-  if (buttonStatus[POSB3]) {controller.buttonUpdate(BUTTON_X, 1);}
-  else {controller.buttonUpdate(BUTTON_X, 0);}
-  if (buttonStatus[POSB4]) {controller.buttonUpdate(BUTTON_Y, 1);}
-  else {controller.buttonUpdate(BUTTON_Y, 0);}
-  if (buttonStatus[POSB9]) {controller.buttonUpdate(BUTTON_L3, 1);}
-  else  {controller.buttonUpdate(BUTTON_L3, 0);}
-  if (buttonStatus[POSB10]) {controller.buttonUpdate(BUTTON_R3, 1);}
-  else {controller.buttonUpdate(BUTTON_R3, 0);}
+  if (buttonStatus[POSB1]) {XInput.press(BUTTON_A);}
+  else  {XInput.release(BUTTON_A);}
+  if (buttonStatus[POSB2]) {XInput.press(BUTTON_B);}
+  else {XInput.release(BUTTON_B);}
+  if (buttonStatus[POSB3]) {XInput.press(BUTTON_X);}
+  else {XInput.release(BUTTON_X);}
+  if (buttonStatus[POSB4]) {XInput.press(BUTTON_Y);}
+  else {XInput.release(BUTTON_Y);}
+  if (buttonStatus[POSB9]) {XInput.press(BUTTON_L3);}
+  else  {XInput.release(BUTTON_L3);}
+  if (buttonStatus[POSB10]) {XInput.press(BUTTON_R3);}
+  else {XInput.release(BUTTON_R3);}
 
   // If BACK and Left Flipper pressed simultaneously, set new plunger dead zone
   // Compensates for games where the in-game plunger doesn't begin pulling back until
@@ -337,15 +334,16 @@ void processInputs()
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
-    if (buttonStatus[POSL1]) {controller.buttonUpdate(BUTTON_LB, 1);}
-    else {controller.buttonUpdate(BUTTON_LB, 0);}
-    if (buttonStatus[POSR1]) {controller.buttonUpdate(BUTTON_RB, 1);}
-    else {controller.buttonUpdate(BUTTON_RB, 0);}
+    if (buttonStatus[POSL1]) {XInput.press(BUTTON_LB);}
+    else {XInput.release(BUTTON_LB);}
+    if (buttonStatus[POSR1]) {XInput.press(BUTTON_RB);}
+    else {XInput.release(BUTTON_RB);}
     if (buttonStatus[POSL2]) leftTrigger = 255;
     else leftTrigger = 0;
     if (buttonStatus[POSR2]) rightTrigger = 255;
     else rightTrigger = 0;
-    controller.triggerUpdate(leftTrigger, rightTrigger);
+    XInput.setTrigger(TRIGGER_LEFT, leftTrigger);
+    XInput.setTrigger(TRIGGER_RIGHT, rightTrigger);
   }
 
   // L2/R2 Flippers (standard mode swapped)
@@ -353,15 +351,16 @@ void processInputs()
   {
     uint8_t leftTrigger = 0;
     uint8_t rightTrigger = 0;
-    if (buttonStatus[POSL2]) {controller.buttonUpdate(BUTTON_LB, 1);}
-    else {controller.buttonUpdate(BUTTON_LB, 0);}
-    if (buttonStatus[POSR2]) {controller.buttonUpdate(BUTTON_RB, 1);}
-    else {controller.buttonUpdate(BUTTON_RB, 0);}
+    if (buttonStatus[POSL2]) {XInput.press(BUTTON_LB);}
+    else {XInput.release(BUTTON_LB);}
+    if (buttonStatus[POSR2]) {XInput.press(BUTTON_RB);}
+    else {XInput.release(BUTTON_RB);}
     if (buttonStatus[POSL1]) {leftTrigger = 255;}
     else {leftTrigger = 0;}
     if (buttonStatus[POSR1]) {rightTrigger = 255;}
     else {rightTrigger = 0;}
-    controller.triggerUpdate(leftTrigger, rightTrigger);
+    XInput.setTrigger(TRIGGER_LEFT, leftTrigger);
+    XInput.setTrigger(TRIGGER_RIGHT, rightTrigger);
   }
 
   // Double Contact Flippers
@@ -375,15 +374,16 @@ void processInputs()
     if (buttonStatus[POSR1] && buttonStatus[POSR2]) {rightTrigger = 255;}
     else if (buttonStatus[POSR1] && !buttonStatus[POSR2]) {rightTrigger = 25;}
     else if (!buttonStatus[POSR1] && !buttonStatus[POSR2]) {rightTrigger = 0;}
-    controller.triggerUpdate(leftTrigger, rightTrigger);
+    XInput.setTrigger(TRIGGER_LEFT, leftTrigger);
+    XInput.setTrigger(TRIGGER_RIGHT, rightTrigger);
   }
 
   //Middle Buttons
-  if (buttonStatus[POSST]&&buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_LOGO, 1);}
-  else if (buttonStatus[POSST]){controller.buttonUpdate(BUTTON_START, 1);}
-  else if (buttonStatus[POSBK]){controller.buttonUpdate(BUTTON_BACK, 1);}
-  else if (buttonStatus[POSXB]){controller.buttonUpdate(BUTTON_LOGO, 1);}
-  else {controller.buttonUpdate(BUTTON_LOGO, 0); controller.buttonUpdate(BUTTON_START, 0); controller.buttonUpdate(BUTTON_BACK, 0);}
+  if (buttonStatus[POSST]&&buttonStatus[POSBK]){XInput.press(BUTTON_LOGO); XInput.release(BUTTON_START); XInput.release(BUTTON_BACK);}
+  else if (buttonStatus[POSST]){XInput.press(BUTTON_START); XInput.release(BUTTON_LOGO); XInput.release(BUTTON_BACK);}
+  else if (buttonStatus[POSBK]){XInput.press(BUTTON_BACK); XInput.release(BUTTON_LOGO); XInput.release(BUTTON_START);}
+  else if (buttonStatus[POSXB]){XInput.press(BUTTON_LOGO); XInput.release(BUTTON_START); XInput.release(BUTTON_BACK);}
+  else {XInput.release(BUTTON_LOGO); XInput.release(BUTTON_START); XInput.release(BUTTON_BACK);}
 
   //Experimental Analog Input
   //Analog flippers
@@ -391,14 +391,15 @@ void processInputs()
   {
     uint8_t leftTrigger = map(analogRead(pinLT), 0, 512, 0, 255);
     uint8_t rightTrigger = map(analogRead(pinRT), 0, 512, 0, 255);
-    controller.triggerUpdate(leftTrigger, rightTrigger);
+    XInput.setTrigger(TRIGGER_LEFT, leftTrigger);
+    XInput.setTrigger(TRIGGER_RIGHT, rightTrigger);
   }
-  
+
   //Tilt
   if (accelerometerEnabled && !leftStickJoy)
   {
-    /* Get a new sensor event */ 
-    sensors_event_t event; 
+    /* Get a new sensor event */
+    sensors_event_t event;
     accel.getEvent(&event);
 
     // Zero accelerometer when START is first pressed (PinSim Yellow Start Button)
@@ -421,7 +422,7 @@ void processInputs()
     int leftStickY = zeroY + (event.acceleration.y * nudgeMultiplier);
     if (millis() > tiltEnableTime)
     {
-      controller.stickUpdate(STICK_LEFT, leftStickX, leftStickY);
+      XInput.setJoystick(JOY_LEFT, leftStickX, leftStickY);
     }
   }
 
@@ -430,7 +431,7 @@ void processInputs()
   if (plungerEnabled)
   {
     int reading = analogRead(pinPlunger);
-  
+
     if ((reading - lastReading) > -10 && (reading - lastReading) < 10 || (reading - lastReading > 75) || (reading - lastReading < -75))
     {
       ave.push(reading);
@@ -460,7 +461,7 @@ void processInputs()
         if (currentDistance - lastDistance >= adjustedPlungeTrigger)
         {
             // we throw STICK_RIGHT to 0 to better simulate the physical behavior of a real analog stick
-            controller.stickUpdate(STICK_RIGHT, 0, 0);
+            XInput.setJoystick(JOY_RIGHT, 0, 0);
             // disable plunger momentarily to compensate for spring bounce
             plungerReportTime = millis() + 1000;
             distanceBuffer = plungerMaxDistance;
@@ -482,11 +483,11 @@ void processInputs()
       else if (currentDistance <= plungerMinDistance + 50)
       {
         currentlyPlunging = true;
-        controller.stickUpdate(STICK_RIGHT, 0, -32760);
+        XInput.setJoystick(JOY_RIGHT, 0, -32760);
         distanceBuffer = plungerMinDistance;
         tiltEnableTime = millis() + 1000;
       }
-      
+
       // cap min
       else if (currentDistance > plungerMaxDistance)
       {
@@ -499,14 +500,16 @@ void processInputs()
 
     if (currentlyPlunging)
     {
-      controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32760));
+      XInput.setJoystick(JOY_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, zeroValue, -32760));
     }
-    else controller.stickUpdate(STICK_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32760));
+    else XInput.setJoystick(JOY_RIGHT, 0, map(distanceBuffer, plungerMaxDistance, plungerMinDistance, 0, -32760));
   }
 
   // Rumble
-  analogWrite(rumbleSmall, controller.rumbleValues[1]);
-  analogWrite(rumbleLarge, controller.rumbleValues[0]);
+  // Receive rumble data from XInput
+  XInput.receive();
+  analogWrite(rumbleSmall, XInput.getRumbleRight());
+  analogWrite(rumbleLarge, XInput.getRumbleLeft());
 
   // Duplicate rumble signals on both motors (causes unacceptable current draw)
 //  if (controller.rumbleValues[0] > 0 && controller.rumbleValues[1] == 0x00)
@@ -517,7 +520,7 @@ void processInputs()
 //  {
 //    analogWrite(rumbleLarge, controller.rumbleValues[1]);
 //  }
- 
+
 }
 
 uint16_t readingToDistance(int16_t reading)
@@ -533,7 +536,7 @@ uint16_t getPlungerAverage()
   for (int i=0; i<numSamples; i++)
   {
     int reading = analogRead(pinPlunger);
-  
+
     if ((reading - lastReading) > -10 && (reading - lastReading) < 10)
     {
       ave.push(reading);
@@ -587,7 +590,7 @@ void deadZoneCompensation()
   flashStartButton();
   buttonUpdate();
   // ensure just one calibration per button press
-  while (digitalRead(POSBK) == LOW)
+  while (digitalRead(pinBK) == LOW)
   {
     // wait...
   }
@@ -605,11 +608,18 @@ void flashStartButton()
 }
 
 //Setup
-void setup() 
+void setup()
 {
+  // Initialize XInput library
+  // Note: For Teensy with XInput USB mode, ensure ArduinoXInput_Teensy package is installed
+  // If you get multiple definition errors, the core and library are conflicting
+  XInput.begin();
+  // Enable auto-send so we don't need to call send() manually (but we'll keep it for explicit control)
+  XInput.setAutoSend(false);
+
   setupPins();
   delay(500);
-  
+
   // rumble test (hold Left Flipper on boot)
   if (digitalRead(pinLB) == LOW)
   {
@@ -623,7 +633,7 @@ void setup()
       analogWrite(rumbleSmall, str);
       delay(10);
     }
-  
+
     for (int str=0; str < 256; str++)
     {
       analogWrite(rumbleLarge, str);
@@ -653,7 +663,7 @@ void setup()
       flashStartButton();
     }
   }
-  
+
   if (accelerometerEnabled)
   {
     /* Set the range to whatever is appropriate for your project */
@@ -661,9 +671,9 @@ void setup()
     // accel.setRange(ADXL345_RANGE_8_G);
     // accel.setRange(ADXL345_RANGE_4_G);
     accel.setRange(ADXL345_RANGE_2_G);
-    
+
     delay(2500); // time to lower the cabinet lid
-    sensors_event_t event; 
+    sensors_event_t event;
     accel.getEvent(&event);
     zeroX = event.acceleration.x * nudgeMultiplier * -1;
     zeroY = event.acceleration.y * nudgeMultiplier * -1;
@@ -672,7 +682,7 @@ void setup()
 
   // plunger setup
   plungerMin = getPlungerAverage();
-  if (plungerEnabled) 
+  if (plungerEnabled)
   {
     plungerMax = EEPROM.readInt(0);
     plungerMin = EEPROM.readInt(10);
@@ -692,20 +702,14 @@ void setup()
   }
 }
 
-void loop() 
+void loop()
 {
   //Poll Buttons
   buttonUpdate();
-  
+
   //Process all inputs and load up the usbData registers correctly
   processInputs();
 
-  //Update the LED display
-  controller.LEDUpdate();
-
-  //Send data
-  controller.sendXinput();
-
-  //Receive data
-  controller.receiveXinput();
+  //Send data (rumble receive is handled in processInputs)
+  XInput.send();
 }

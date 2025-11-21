@@ -1,22 +1,31 @@
 # PinSim
 XInput Game Controller for PC Pinball Games
 
-Based on the excellent [MSF_FightStick XINPUT](https://github.com/zlittell/MSF-XINPUT) project by Zack "Reaper" Littell
+Based on the excellent [Arduino XInput Library](https://github.com/dmadison/ArduinoXInput) library by David Madison.
 
 #### The complete project build guide, along with PCB links, wiring schematics, and 3D STL files, is [hosted here](https://github.com/Jerware/PinSim/blob/master/pinsim_instructions.pdf) and backed up on [Archive.org](https://web.archive.org/web/20180209074729/https://www.tested.com/tech/gaming/569647-how-build-pinsim-virtual-reality-pinball-machine/).
 
 This code is designed to run on Teensy LC and requires the following libraries:
 
-- [MSF-XInput](https://github.com/zlittell/MSF-XINPUT/tree/master/MSF_XINPUT)
+- [Arduino XInput](https://github.com/dmadison/ArduinoXInput)
 - [Adafruit Sensor](https://github.com/adafruit/Adafruit_Sensor)
 - [Adafruit ADXL345](https://github.com/adafruit/Adafruit_ADXL345)
 - [Bounce](https://www.pjrc.com/teensy/td_libs_Bounce.html)
 - [Average](https://github.com/MajenkoLibraries/Average)
 - [EEPROMex](https://github.com/thijse/Arduino-EEPROMEx)
 
-Please note the instructions for the MSF-XInput library, which requires some Teensyduino files to be overwritten in order to add support for a new USB device type.
+Please note the instructions for the Arduino XInput library, which requires some Teensyduino files to be overwritten in order to add support for a new USB device type.
 
 I have included compiled code that can be installed on a Teensy LC using the [Teensy Loader](https://www.pjrc.com/teensy/loader.html) application. The code will compile for Teensy 3.2 but, besides being more expensive, that board lacks sufficient current output on the LED pins.
+
+#### Setup instructions:
+
+1. Install all required libraries via Arduino Library Manager
+2. Download ArduinoXInput_Teensy from: https://github.com/dmadison/ArduinoXInput_Teensy
+3. Follow installation instructions to copy files to Teensy hardware folder
+4. Restart Arduino IDE
+5. Select Tools > Board > Teensy 4.x
+6. Select Tools > USB Type > XInput
 
 #### OPTIONS OVERVIEW:
 
@@ -28,6 +37,9 @@ I have included compiled code that can be installed on a Teensy LC using the [Te
 * BACK + JOYSTICK RIGHT: L2 & R2 flippers
 
 Note: If installed, you MUST calibrate the analog plunger range at least once by holding down "A" when plugging in the USB cable. LED-1 should flash rapidly, and then you should pull the plunger all the way out and release it all the way back in. The LED1 should flash again, and normal operation resumes. The setting is saved between power cycles.
+
+#### Changelog 21/11/2025:
+* Migrated to Arduino XInput Library
 
 #### New features added 05/17/2020:
 
